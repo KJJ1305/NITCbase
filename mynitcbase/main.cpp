@@ -106,16 +106,38 @@ void updateAttributeName(const char* relName, const char* oldAttrName, const cha
 }
 }
 
+void printRelationCache() {	
+	RelCatEntry relCatEntry;
+	for(int i = RELCAT_RELID; i <= 1; i++) {
+		if(RelCacheTable::getRelCatEntry(i, &relCatEntry) != SUCCESS) {
+			printf("Relation Catalogue Not Found.\n");
+		}
+		printf("Relation: %s\n", relCatEntry.relName);
+		for(int j = 0; j < relCatEntry.numAttrs; j++) {
+			AttrCatEntry attrCatEntry;
+			const int response = AttrCacheTable::getAttrCatEntry(i,j,&attrCatEntry);
+			if(response != SUCCESS) {
+				printf("Failed to fetch entries.\n");
+			}
+			const char* attrType = attrCatEntry.attrType == NUMBER ? "NUM" : "STR";
+			printf(" %s %s\n", attrCatEntry.attrName, attrType);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
 int main(int argc, char *argv[]) {
 
   Disk disk_run;
-
+  StaticBuffer buffer;
+  OpenRelTable cache;
   
-  updateAttributeName("Sample", "CGPA", "Marks");
+  //updateAttributeName("Sample", "CGPA", "Marks");
   displayRelations();
+  printRelationCache();
   return 0;
-  // StaticBuffer buffer;
-  // OpenRelTable cache;
+
 
   //return FrontendInterface::handleFrontend(argc, argv);
 }
