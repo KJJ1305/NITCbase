@@ -108,7 +108,7 @@ void updateAttributeName(const char* relName, const char* oldAttrName, const cha
 
 void printRelationCache() {	
 	RelCatEntry relCatEntry;
-	for(int i = RELCAT_RELID; i <= 1; i++) {
+	for(int i = RELCAT_RELID; i <= 4; i++) {
 		if(RelCacheTable::getRelCatEntry(i, &relCatEntry) != SUCCESS) {
 			printf("Relation Catalogue Not Found.\n");
 		}
@@ -133,11 +133,6 @@ int main(int argc, char *argv[]) {
   StaticBuffer buffer;
   OpenRelTable cache;
   
-  //updateAttributeName("Sample", "CGPA", "Marks");
-  displayRelations();
-  printRelationCache();
-  return 0;
 
-
-  //return FrontendInterface::handleFrontend(argc, argv);
+  return FrontendInterface::handleFrontend(argc, argv);
 }
