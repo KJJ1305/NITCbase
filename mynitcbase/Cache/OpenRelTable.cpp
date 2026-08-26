@@ -3,155 +3,92 @@
 #include <cstring>
 #include <stdlib.h>
 #include <iostream>
+OpenRelTableMetaInfo OpenRelTable::tableMetaInfo[MAX_OPEN];
 
 OpenRelTable::OpenRelTable() {
-    /*
-        RelCacheEntry - 
-            relCatEntry -> header values
-            dirty
-            recId
-            searchIndex
-
-    */
-    // initializing relCache and attrCache with null valueds
     for(int i = 0; i < MAX_OPEN; i++) {
+        tableMetaInfo[i].free = true;
         RelCacheTable::relCache[i] = nullptr;
         AttrCacheTable::attrCache[i] = nullptr;
     }
-
-    // populating through relation catalog for the relation cache
     
     RecBuffer relCatBuffer(RELCAT_BLOCK);
-    // Attribute relCatRecord[RELCAT_NO_ATTRS];
     Attribute relCatRecord[RELCAT_NO_ATTRS];
 
     HeadInfo relCatHeader;
     relCatBuffer.getHeader(&relCatHeader);
     
-    for(int i = 0; i < relCatHeader.numEntries; i++) {
+    for(int i = 0; i <= ATTRCAT_RELID; i++) {
         relCatBuffer.getRecord(relCatRecord, i); 
         RelCacheEntry relCacheEntry;
         RelCacheTable::recordToRelCatEntry(relCatRecord, &relCacheEntry.relCatEntry);
         relCacheEntry.recId.block = RELCAT_BLOCK;
         relCacheEntry.recId.slot = i;
+        relCacheEntry.searchIndex = {-1, -1};
 
         RelCacheTable::relCache[i] = (RelCacheEntry*)malloc(sizeof(RelCacheEntry));
         *(RelCacheTable::relCache[i]) = relCacheEntry;
     }
-    // relCatBuffer.getRecord(relCatRecord, RELCAT_SLOTNUM_FOR_RELCAT);
 
-    // RelCacheEntry relCacheEntry;
-    // RelCacheTable::recordToRelCatEntry(relCatRecord, &relCacheEntry.relCatEntry);
-    // relCacheEntry.recId.block = RELCAT_BLOCK;
-    // relCacheEntry.recId.slot = RELCAT_SLOTNUM_FOR_RELCAT;
+    RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
+    Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
+    AttrCacheEntry* attrCacheEntry = nullptr;
+    AttrCacheEntry* head = nullptr;
+    AttrCacheEntry* prev = nullptr;
 
-    // RelCacheTable::relCache[RELCAT_RELID] = (RelCacheEntry*)malloc(sizeof(RelCacheEntry));
-    // *(RelCacheTable::relCache[RELCAT_RELID]) = relCacheEntry;
+   for(int i = RELCAT_RELID, attrSlotIndex = 0; i <= ATTRCAT_RELID ; i++) {
+        RelCatEntry relCatEntry;
+        HeadInfo attrCatHeader;
+        attrCatBuffer.getHeader(&attrCatHeader);
+        relCatEntry = RelCacheTable::relCache[i]->relCatEntry;
+        int noOfAttributes = relCatEntry.numAttrs;
+        for(int j = 0; j < noOfAttributes; j++, attrSlotIndex++) {
+            attrCatBuffer.getRecord(attrCatRecord, attrSlotIndex);
+            attrCacheEntry = (AttrCacheEntry*)malloc(sizeof(AttrCacheEntry));
+            AttrCacheTable::recordToAttrCatEntry(attrCatRecord, &(attrCacheEntry->attrCatEntry));
+            attrCacheEntry->recId.block = ATTRCAT_BLOCK;
+            attrCacheEntry->recId.slot = attrSlotIndex; 
 
-
-    // // setting up Attribute catalog relation in relation catalog table
-
-    // relCatBuffer.getRecord(relCatRecord, RELCAT_SLOTNUM_FOR_ATTRCAT);
-    // RelCacheTable::recordToRelCatEntry(relCatRecord, &relCacheEntry.relCatEntry);
-    // relCacheEntry.recId.block = RELCAT_BLOCK;
-    // relCacheEntry.recId.slot  = RELCAT_SLOTNUM_FOR_ATTRCAT;
-
-    // RelCacheTable::relCache[ATTRCAT_RELID] = (RelCacheEntry*)malloc(sizeof(RelCacheEntry));
-    // *(RelCacheTable::relCache[ATTRCAT_RELID]) = relCacheEntry;
-
-
-    // Setting up the Attribute cache entries //
-   RecBuffer attrCatBuffer(ATTRCAT_BLOCK);
-Attribute attrCatRecord[ATTRCAT_NO_ATTRS];
-HeadInfo attrCatHeader;
-attrCatBuffer.getHeader(&attrCatHeader);
-
-AttrCacheEntry* attrCacheEntry = nullptr;
-AttrCacheEntry* head = nullptr;
-AttrCacheEntry* prev = nullptr;
-
-int attributeCount = 0;
-int attrCatSlotIndex = 0;
-int attrCatBlock = ATTRCAT_BLOCK;
-
-for(int i = 0; i < relCatHeader.numEntries; i++) {
-    // Get the number of attributes for the current relation
-    int noOfAttributes = RelCacheTable::relCache[i]->relCatEntry.numAttrs;
-
-    for(int j = 0; j < noOfAttributes; j++) {
-        // Get the attribute record from the Attribute Catalog
-        attrCatBuffer.getRecord(attrCatRecord, attrCatSlotIndex);
-
-        attrCacheEntry = (AttrCacheEntry*)malloc(sizeof(AttrCacheEntry));
-        AttrCacheTable::recordToAttrCatEntry(attrCatRecord, &(attrCacheEntry->attrCatEntry));
-
-        attrCacheEntry->recId.block = attrCatBlock;
-        attrCacheEntry->recId.slot = attrCatSlotIndex;
-
-        if(!head) {
-            head = attrCacheEntry;
+            if(!head) {
+                head = attrCacheEntry;
+                prev = attrCacheEntry; 
+                continue;
+            }
+            if(attrSlotIndex == attrCatHeader.numSlots - 1) {
+                attrSlotIndex = -1;
+                HeadInfo attrCatHeader; 
+                attrCatBuffer.getHeader(&attrCatHeader);
+                attrCatBuffer = RecBuffer(attrCatHeader.rblock);
+            }
+            prev->next = attrCacheEntry;
             prev = attrCacheEntry;
         }
+        attrCacheEntry->next = nullptr;
+        AttrCacheTable::attrCache[i] = head;
+        head = nullptr;
+        prev = nullptr;
+   }
 
-        prev->next = attrCacheEntry;
-        prev = attrCacheEntry;
+    tableMetaInfo[RELCAT_RELID].free = false;
+    tableMetaInfo[ATTRCAT_RELID].free = false;
+    strcpy(tableMetaInfo[RELCAT_RELID].relName, "RELATIONCAT");
+    strcpy(tableMetaInfo[ATTRCAT_RELID].relName, "ATTRIBUTECAT");
+}
 
-        attrCatSlotIndex++;
+int OpenRelTable::getFreeOpenRelTableEntry() {
 
-        if(attrCatSlotIndex == attrCatHeader.numSlots) {
-            attrCatBlock = attrCatHeader.rblock;
-            attrCatSlotIndex = 0;
-
-            if(attrCatBlock != -1) {
-                attrCatBuffer = RecBuffer(attrCatBlock);
-                attrCatBuffer.getHeader(&attrCatHeader);
-            }
+  /* traverse through the tableMetaInfo array,
+    find a free entry in the Open Relation Table.*/
+    for(int i = 0; i < MAX_OPEN; i++) {
+        if(tableMetaInfo[i].free) {
+            return i;
         }
     }
 
-    prev->next = nullptr;
-    AttrCacheTable::attrCache[i] = head;
-
-    attributeCount += noOfAttributes;
-    head = nullptr;
-    prev = nullptr;
+  // if found return the relation id, else return E_CACHEFULL.
+  return E_CACHEFULL;
 }
-    // for(int i = 0; i < RELCAT_NO_ATTRS; i++) {
-    //     attrCatBuffer.getRecord(attrCatRecord, i);
-    //     attrCacheEntry = (AttrCacheEntry*)malloc(sizeof(AttrCacheEntry));
-    //     AttrCacheTable::recordToAttrCatEntry(attrCatRecord, &(attrCacheEntry->attrCatEntry));
-    //     if(!head) {
-    //         head = attrCacheEntry;
-    //         prev = attrCacheEntry;
-    //     }
-    //     prev->next = attrCacheEntry;
-    //     prev = attrCacheEntry;
-    // }
-    // attrCacheEntry->next = nullptr;
 
-    // AttrCacheTable::attrCache[RELCAT_RELID] = head;
-
-    // /* Simply printing the linked list for debugging*/
-
-    // // Setting up Attribute Catalog relation in the Attribute Cache Table // 
-
-    // prev = nullptr;
-    // head = nullptr;
-    // for(int i = 6; i < ATTRCAT_NO_ATTRS + 6; i++) {
-    //     attrCatBuffer.getRecord(attrCatRecord, i);
-    //     attrCacheEntry = (AttrCacheEntry*)malloc(sizeof(AttrCacheEntry));
-    //     AttrCacheTable::recordToAttrCatEntry(attrCatRecord, &(attrCacheEntry->attrCatEntry));
-    //     if(!head) {
-    //         prev = attrCacheEntry;
-    //         head = attrCacheEntry;
-    //     }
-    //     prev->next = attrCacheEntry;
-    //     prev = attrCacheEntry;
-    // }
-
-    // attrCacheEntry->next = nullptr;
-    // AttrCacheTable::attrCache[ATTRCAT_RELID] = head;
-}
 void freeLinkedList(AttrCacheEntry** head) {
     if (!head || !*head) return;  
     
@@ -172,22 +109,129 @@ and open the appropriate one.
 */
 int OpenRelTable::getRelId(char relName[ATTR_SIZE]) {
 
-  // if relname is RELCAT_RELNAME, return RELCAT_RELID
-  // if relname is ATTRCAT_RELNAME, return ATTRCAT_RELID
-    if (strcmp(relName, RELCAT_RELNAME) == 0) {
-        return RELCAT_RELID;
-    } else if (strcmp(relName, ATTRCAT_RELNAME) == 0) {
-        return ATTRCAT_RELID;
-    }
-    else if(strcmp(relName, "Students")==0){
-        return ATTRCAT_RELID+1;
+     /* traverse through the tableMetaInfo array,
+    find the entry in the Open Relation Table corresponding to relName.*/
+  for(int i = 0; i < MAX_OPEN; i++) {
+        if(!tableMetaInfo[i].free && strcmp(tableMetaInfo[i].relName, relName) == 0) {
+            return i;
+        }
     }
 
   return E_RELNOTOPEN;
 }
 
-OpenRelTable::~OpenRelTable() {
-    for(int i = RELCAT_RELID; i <= ATTRCAT_RELID; i++) {
-        freeLinkedList(&AttrCacheTable::attrCache[i]);
+int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
+    int relCheck = getRelId(relName);
+    if(relCheck != E_RELNOTOPEN) {
+        return relCheck;
     }
+    
+    int emptySlot = getFreeOpenRelTableEntry();
+    if(emptySlot == E_CACHEFULL) {
+        return E_CACHEFULL;
+    }
+
+    int relId = emptySlot;
+    // Setting up Relation Cache Entry of the relation
+    // first search for the relation entry in the relation catalog
+
+    Attribute attrVal;
+    strcpy(attrVal.sVal, relName);
+
+    RelCacheTable::resetSearchIndex(RELCAT_RELID);
+    RecId searchIndex = BlockAccess::linearSearch(RELCAT_RELID, (char*)RELCAT_ATTR_RELNAME, attrVal, EQ);
+
+    if(searchIndex.block == -1 && searchIndex.slot == -1) {
+        return E_RELNOTEXIST;
+    }
+
+    // loading the records with block and slot into relation catalog
+
+    RecBuffer relationBuffer(searchIndex.block);
+    Attribute record[RELCAT_NO_ATTRS];
+    relationBuffer.getRecord(record, searchIndex.slot);
+
+    RelCacheEntry *relCacheEntry = (RelCacheEntry*)malloc(sizeof(RelCacheEntry));
+    RelCacheTable::recordToRelCatEntry(record, &relCacheEntry->relCatEntry);
+
+    relCacheEntry->recId = searchIndex;
+    RelCacheTable::relCache[relId] = relCacheEntry;
+
+    // loading the attributes to the attribute cache
+
+    Attribute attrRecord[ATTRCAT_NO_ATTRS];
+    AttrCacheEntry* prev = nullptr;
+    AttrCacheEntry* head = nullptr;
+
+    int numberOfAttributes = RelCacheTable::relCache[relId]->relCatEntry.numAttrs;
+
+    for(int i = 0; i < numberOfAttributes; i++) {
+        RecId attributeSearchIndex = BlockAccess::linearSearch(ATTRCAT_RELID, (char*)RELCAT_ATTR_RELNAME, attrVal, EQ);
+
+        RecBuffer attrCatBlock = RecBuffer(attributeSearchIndex.block);
+        attrCatBlock.getRecord(attrRecord, attributeSearchIndex.slot);
+        AttrCacheEntry* attrCacheEntry = (AttrCacheEntry*)malloc(sizeof(AttrCacheEntry));
+        AttrCacheTable::recordToAttrCatEntry(attrRecord, &(attrCacheEntry->attrCatEntry));
+        attrCacheEntry->recId = attributeSearchIndex;
+        
+        if(!head) {
+            head = attrCacheEntry;
+        } else {
+            prev->next = attrCacheEntry;
+        }
+        prev = attrCacheEntry;
+    }
+    prev->next = nullptr;
+    AttrCacheTable::attrCache[relId] = head;
+
+    //update the metainfoa
+    tableMetaInfo[relId].free = false;
+    strcpy(tableMetaInfo[relId].relName, relName);
+    
+    // debugging
+
+
+    return relId;
+}
+
+int OpenRelTable::closeRel(int relId){
+    if(relId==0 || relId==1){
+        return E_NOTPERMITTED;
+    }
+
+    if(relId < 0 || relId >= MAX_OPEN) {
+        return E_OUTOFBOUND;
+    }
+
+    if(tableMetaInfo[relId].free) {
+        return E_RELNOTOPEN;
+    }
+
+     // free the memory allocated in the relation and attribute caches which was
+  // allocated in the OpenRelTable::openRel() function
+    free(RelCacheTable::relCache[relId]);
+    freeLinkedList(&AttrCacheTable::attrCache[relId]);
+
+  // update `tableMetaInfo` to set `relId` as a free slot
+  // update `relCache` and `attrCache` to set the entry at `relId` to nullptr
+  
+    tableMetaInfo[relId].free = true;
+    RelCacheTable::relCache[relId] = nullptr;
+    AttrCacheTable::attrCache[relId] = nullptr;
+
+  return SUCCESS;
+}
+
+OpenRelTable::~OpenRelTable() {
+    for (int i = 2; i < MAX_OPEN; ++i) {
+    if (tableMetaInfo[i].free==false) {
+      OpenRelTable::closeRel(i); // we will implement this function later
+    }
+  }
+
+    free(RelCacheTable::relCache[0]);
+    free(RelCacheTable::relCache[1]);
+
+    freeLinkedList(&AttrCacheTable::attrCache[0]);
+    freeLinkedList(&AttrCacheTable::attrCache[1]);
 }
