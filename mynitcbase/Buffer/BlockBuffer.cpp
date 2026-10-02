@@ -1,5 +1,5 @@
 #include "BlockBuffer.h"
-
+#include<stdio.h>
 #include <cstdlib>
 #include <cstring>
 
@@ -53,31 +53,44 @@ int RecBuffer::getRecord(union Attribute *rec, int slotNum) {
 }
 
 int RecBuffer::setRecord(union Attribute *rec, int slotNum) {
+     unsigned char *bufferPtr;
+
+    int ret = loadBlockAndGetBufferPtr(&bufferPtr);
+    if (ret != SUCCESS)
+    {
+        return ret;
+    }
     HeadInfo head;
+
     BlockBuffer::getHeader(&head);
 
     int attrCount = head.numAttrs;
     int slotCount = head.numSlots;
-    
-    unsigned char buffer[BLOCK_SIZE];
-    Disk::readBlock(buffer, this->blockNum);
 
-    int recordStart = HEADER_SIZE + slotCount + slotNum * (ATTR_SIZE * attrCount);
     int recordSize = ATTR_SIZE * attrCount;
+    int recordStart = HEADER_SIZE + slotCount + slotNum * recordSize;
+    unsigned char *start = bufferPtr + recordStart;
 
-    memcpy(buffer + recordStart, rec, recordSize);
-    Disk::writeBlock(buffer, this->blockNum);
-    
+    memcpy(start, rec, recordSize);
+
+    if(StaticBuffer::setDirtyBit(this->blockNum) != SUCCESS) {
+        printf("Setting Dirty Failed.\n");
+    }
+
     return SUCCESS;
-
 }
 
 int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char **buffPtr){
 
   // check whether the block is already present in the buffer using StaticBuffer.getBufferNum()
   int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
-
-  if (bufferNum == E_BLOCKNOTINBUFFER) {
+  if(bufferNum != E_BLOCKNOTINBUFFER) {
+        for(int i = 0; i < BUFFER_CAPACITY; i++) {
+            StaticBuffer::metainfo[i].timeStamp++;
+        }
+        StaticBuffer::metainfo[bufferNum].timeStamp = 0;
+    }
+  else {
     bufferNum = StaticBuffer::getFreeBuffer(this->blockNum);
 
     if (bufferNum == E_OUTOFBOUND) {

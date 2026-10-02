@@ -28,6 +28,9 @@ int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr
       return E_ATTRTYPEMISMATCH;
     }
   } else if (type == STRING) {
+    if(isNumber(strVal)) {
+      return E_ATTRTYPEMISMATCH;
+    }
     strcpy(attrVal.sVal, strVal);
   }
    /*** Selecting records from the source relation ***/

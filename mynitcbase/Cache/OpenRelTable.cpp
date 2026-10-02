@@ -155,6 +155,7 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
     RelCacheTable::recordToRelCatEntry(record, &relCacheEntry->relCatEntry);
 
     relCacheEntry->recId = searchIndex;
+    relCacheEntry->searchIndex = {-1, -1};
     RelCacheTable::relCache[relId] = relCacheEntry;
 
     // loading the attributes to the attribute cache
@@ -165,8 +166,16 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
 
     int numberOfAttributes = RelCacheTable::relCache[relId]->relCatEntry.numAttrs;
 
+    RelCacheTable::resetSearchIndex(ATTRCAT_RELID);
     for(int i = 0; i < numberOfAttributes; i++) {
         RecId attributeSearchIndex = BlockAccess::linearSearch(ATTRCAT_RELID, (char*)RELCAT_ATTR_RELNAME, attrVal, EQ);
+
+        if(attributeSearchIndex.block == -1 || attributeSearchIndex.slot == -1) {
+            free(relCacheEntry);
+            freeLinkedList(&head);
+            RelCacheTable::relCache[relId] = nullptr;
+            return E_ATTRNOTEXIST;
+        }
 
         RecBuffer attrCatBlock = RecBuffer(attributeSearchIndex.block);
         attrCatBlock.getRecord(attrRecord, attributeSearchIndex.slot);
@@ -181,7 +190,9 @@ int OpenRelTable::openRel(char relName[ATTR_SIZE]) {
         }
         prev = attrCacheEntry;
     }
-    prev->next = nullptr;
+    if(prev != nullptr) {
+        prev->next = nullptr;
+    }
     AttrCacheTable::attrCache[relId] = head;
 
     //update the metainfoa
