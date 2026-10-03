@@ -217,6 +217,15 @@ int OpenRelTable::closeRel(int relId){
     if(tableMetaInfo[relId].free) {
         return E_RELNOTOPEN;
     }
+    if(RelCacheTable::relCache[relId]->dirty) {
+        Attribute record[RELCAT_NO_ATTRS];
+        RelCacheTable::relCatEntryToRecord(&(RelCacheTable::relCache[relId]->relCatEntry), record);
+        
+        RecId recData = RelCacheTable::relCache[relId]->recId;
+        RecBuffer relCatBuffer(recData.block);
+        relCatBuffer.setRecord(record, recData.slot);
+
+    }
 
      // free the memory allocated in the relation and attribute caches which was
   // allocated in the OpenRelTable::openRel() function
