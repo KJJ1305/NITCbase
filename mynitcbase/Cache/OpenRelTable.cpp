@@ -245,10 +245,31 @@ int OpenRelTable::closeRel(int relId){
 OpenRelTable::~OpenRelTable() {
     for (int i = 2; i < MAX_OPEN; ++i) {
     if (tableMetaInfo[i].free==false) {
-      OpenRelTable::closeRel(i); // we will implement this function later
+      OpenRelTable::closeRel(i);
     }
   }
 
+    if(RelCacheTable::relCache[ATTRCAT_RELID]->dirty){
+        Attribute record[RELCAT_NO_ATTRS];
+        RelCatEntry relCatEntry;
+        RelCacheTable::getRelCatEntry(ATTRCAT_RELID, &relCatEntry);
+        RelCacheTable::relCatEntryToRecord(&relCatEntry, record);
+        RecId recData = RelCacheTable::relCache[ATTRCAT_RELID]->recId;
+        RecBuffer relCatBuffer(recData.block);
+        relCatBuffer.setRecord(record, recData.slot);
+    }
+
+    if(RelCacheTable::relCache[RELCAT_RELID]->dirty){
+        RelCatEntry relCatEntry;
+        RelCacheTable::getRelCatEntry(RELCAT_RELID, &relCatEntry);
+        Attribute record[RELCAT_NO_ATTRS];
+        RelCacheTable::relCatEntryToRecord(&relCatEntry, record);
+        RecId recData = RelCacheTable::relCache[RELCAT_RELID]->recId;
+        RecBuffer relCatBuffer(recData.block);
+        relCatBuffer.setRecord(record, recData.slot);
+    }
+
+    // free the cache for rel id 0 and 1
     free(RelCacheTable::relCache[0]);
     free(RelCacheTable::relCache[1]);
 

@@ -238,6 +238,20 @@ int BlockBuffer::getBlockNum() {
     return this->blockNum;
 }
 
+void BlockBuffer::releaseBlock(){
+    if(blockNum==-1||StaticBuffer::blockAllocMap[blockNum]==UNUSED_BLK){
+        return;
+    }
+    int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
+
+    if(bufferNum>=0 && bufferNum<BUFFER_CAPACITY) {
+        StaticBuffer::metainfo[bufferNum].free = true;
+    }
+
+    StaticBuffer::blockAllocMap[blockNum] = UNUSED_BLK;
+    this->blockNum = -1;
+}
+
 int compareAttrs(union Attribute attr1, union Attribute attr2, int attrType) {
 
     double diff;
