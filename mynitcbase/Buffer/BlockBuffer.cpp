@@ -154,6 +154,9 @@ int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char **buffPtr){
 
   // check whether the block is already present in the buffer using StaticBuffer.getBufferNum()
   int bufferNum = StaticBuffer::getBufferNum(this->blockNum);
+  if(bufferNum == E_OUTOFBOUND) {
+      return E_OUTOFBOUND;
+  }
   if(bufferNum != E_BLOCKNOTINBUFFER) {
         for(int i = 0; i < BUFFER_CAPACITY; i++) {
             StaticBuffer::metainfo[i].timeStamp++;
@@ -163,7 +166,7 @@ int BlockBuffer::loadBlockAndGetBufferPtr(unsigned char **buffPtr){
   else {
     bufferNum = StaticBuffer::getFreeBuffer(this->blockNum);
 
-    if (bufferNum == E_OUTOFBOUND) {
+        if (bufferNum == E_OUTOFBOUND || bufferNum == E_BLOCKNOTINBUFFER) {
       return E_OUTOFBOUND;
     }
 

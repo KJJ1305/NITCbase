@@ -47,7 +47,7 @@ StaticBuffer::~StaticBuffer() {
 }
 
 int StaticBuffer::getFreeBuffer(int blockNum) {
-  if(blockNum < 0 || blockNum > DISK_BLOCKS) {
+  if(blockNum < 0 || blockNum >= DISK_BLOCKS) {
         return E_OUTOFBOUND;
     }
     // increase the timeStamp in metainfo of all occupied buffers
@@ -71,9 +71,11 @@ int StaticBuffer::getFreeBuffer(int blockNum) {
         }
     }
     // write back functionality 
-    if(allocatedBuffer==-1 && metainfo[index].dirty) {
+    if(allocatedBuffer == -1) {
+      if (metainfo[index].dirty) {
         Disk::writeBlock(blocks[index], metainfo[index].blockNum);
-        allocatedBuffer = index;
+      }
+      allocatedBuffer = index;
     }
     metainfo[allocatedBuffer].free = false;
     metainfo[allocatedBuffer].blockNum = blockNum;
@@ -90,7 +92,7 @@ int StaticBuffer::getFreeBuffer(int blockNum) {
 int StaticBuffer::getBufferNum(int blockNum) {
   // Check if blockNum is valid (between zero and DISK_BLOCKS)
   // and return E_OUTOFBOUND if not valid.
-  if(blockNum < 0 || blockNum > DISK_BLOCKS) {
+  if(blockNum < 0 || blockNum >= DISK_BLOCKS) {
     return E_OUTOFBOUND;
   }
 

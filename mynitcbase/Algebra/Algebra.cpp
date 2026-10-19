@@ -6,95 +6,239 @@
 
 bool isNumber(char *str);
 
-int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr[ATTR_SIZE], int op, char strVal[ATTR_SIZE]){
+// int Algebra::select(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], char attr[ATTR_SIZE], int op, char strVal[ATTR_SIZE]){
 
-  int srcRelId = OpenRelTable::getRelId(srcRel);      // we'll implement this later
-  if (srcRelId == E_RELNOTOPEN) {
-    return E_RELNOTOPEN;
-  }
+//   int srcRelId = OpenRelTable::getRelId(srcRel);      // we'll implement this later
+//   if (srcRelId == E_RELNOTOPEN) {
+//     return E_RELNOTOPEN;
+//   }
 
-   AttrCatEntry attrCatEntry;
-   int ret = AttrCacheTable::getAttrCatEntry(srcRelId, attr, &attrCatEntry);
-   if(ret != SUCCESS) {
-     return ret;
-   }
+//    AttrCatEntry attrCatEntry;
+//    int ret = AttrCacheTable::getAttrCatEntry(srcRelId, attr, &attrCatEntry);
+//    if(ret != SUCCESS) {
+//      return ret;
+//    }
 
-   int type = attrCatEntry.attrType;
-  Attribute attrVal;
-  if (type == NUMBER) {
-    if (isNumber(strVal)) {       // the isNumber() function is implemented below
-      attrVal.nVal = atof(strVal);
-    } else {
-      return E_ATTRTYPEMISMATCH;
-    }
-  } else if (type == STRING) {
-    if(isNumber(strVal)) {
-      return E_ATTRTYPEMISMATCH;
-    }
-    strcpy(attrVal.sVal, strVal);
-  }
-   /*** Selecting records from the source relation ***/
+//    int type = attrCatEntry.attrType;
+//   Attribute attrVal;
+//   if (type == NUMBER) {
+//     if (isNumber(strVal)) {       // the isNumber() function is implemented below
+//       attrVal.nVal = atof(strVal);
+//     } else {
+//       return E_ATTRTYPEMISMATCH;
+//     }
+//   } else if (type == STRING) {
+//     if(isNumber(strVal)) {
+//       return E_ATTRTYPEMISMATCH;
+//     }
+//     strcpy(attrVal.sVal, strVal);
+//   }
+//    /*** Selecting records from the source relation ***/
 
-  // Before calling the search function, reset the search to start from the first hit
-  // using RelCacheTable::resetSearchIndex()
-  RelCacheTable::resetSearchIndex(srcRelId);
+//   // Before calling the search function, reset the search to start from the first hit
+//   // using RelCacheTable::resetSearchIndex()
+//   RelCacheTable::resetSearchIndex(srcRelId);
 
-  RelCatEntry relCatEntry;
-    RelCacheTable::getRelCatEntry(srcRelId, &relCatEntry);
+//   RelCatEntry relCatEntry;
+//     RelCacheTable::getRelCatEntry(srcRelId, &relCatEntry);
 
-    /************************
-  The following code prints the contents of a relation directly to the output
-  console. Direct console output is not permitted by the actual the NITCbase
-  specification and the output can only be inserted into a new relation. We will
-  be modifying it in the later stages to match the specification.
-  ************************/
+//     /************************
+//   The following code prints the contents of a relation directly to the output
+//   console. Direct console output is not permitted by the actual the NITCbase
+//   specification and the output can only be inserted into a new relation. We will
+//   be modifying it in the later stages to match the specification.
+//   ************************/
 
-  printf("|");
-  for (int i = 0; i < relCatEntry.numAttrs; ++i) {
-    AttrCatEntry attrCatEntry;
-    // get attrCatEntry at offset i using AttrCacheTable::getAttrCatEntry()
-    AttrCacheTable::getAttrCatEntry(srcRelId, i, &attrCatEntry);
-    printf(" %s |", attrCatEntry.attrName);
-  }
-  printf("\n");
+//   printf("|");
+//   for (int i = 0; i < relCatEntry.numAttrs; ++i) {
+//     AttrCatEntry attrCatEntry;
+//     // get attrCatEntry at offset i using AttrCacheTable::getAttrCatEntry()
+//     AttrCacheTable::getAttrCatEntry(srcRelId, i, &attrCatEntry);
+//     printf(" %s |", attrCatEntry.attrName);
+//   }
+//   printf("\n");
 
   
-  while (true) {
-    RecId searchRes = BlockAccess::linearSearch(srcRelId, attr, attrVal, op);
+//   while (true) {
+//     RecId searchRes = BlockAccess::linearSearch(srcRelId, attr, attrVal, op);
 
-    if (searchRes.block != -1 && searchRes.slot != -1) {
+//     if (searchRes.block != -1 && searchRes.slot != -1) {
         
-      AttrCatEntry attrCatEnt;
+//       AttrCatEntry attrCatEnt;
 
-            RecBuffer blockBuffer(searchRes.block);
-            HeadInfo header;
-            blockBuffer.getHeader(&header);
-            Attribute record[header.numAttrs];
-            blockBuffer.getRecord(record, searchRes.slot);
+//             RecBuffer blockBuffer(searchRes.block);
+//             HeadInfo header;
+//             blockBuffer.getHeader(&header);
+//             Attribute record[header.numAttrs];
+//             blockBuffer.getRecord(record, searchRes.slot);
             
-            for(int i = 0; i < header.numAttrs; i++) {
-                AttrCacheTable::getAttrCatEntry(srcRelId, i, &attrCatEnt);
-                if(attrCatEnt.attrType == NUMBER) {
-                    printf(" %d |", (int)record[i].nVal);
-                } else {
-                    printf(" %s |", record[i].sVal);
-                }
-            }
-            printf("\n");
+//             for(int i = 0; i < header.numAttrs; i++) {
+//                 AttrCacheTable::getAttrCatEntry(srcRelId, i, &attrCatEnt);
+//                 if(attrCatEnt.attrType == NUMBER) {
+//                     printf(" %d |", (int)record[i].nVal);
+//                 } else {
+//                     printf(" %s |", record[i].sVal);
+//                 }
+//             }
+//             printf("\n");
 
-      // get the record at searchRes using BlockBuffer.getRecord
+//       // get the record at searchRes using BlockBuffer.getRecord
 
-      // print the attribute values in the same format as above
+//       // print the attribute values in the same format as above
 
-    } else {
+//     } else {
 
-      // (all records over)
-      break;
+//       // (all records over)
+//       break;
+//     }
+//   }
+
+//   return SUCCESS;
+// }
+
+int Algebra::select(char srcRel[ATTR_SIZE],char targetRel[ATTR_SIZE],char attr[ATTR_SIZE],int op,char strVal[ATTR_SIZE])
+{
+
+    int srcRelId = OpenRelTable::getRelId(srcRel);
+    if (srcRelId == E_RELNOTOPEN)
+    {
+        return E_RELNOTOPEN;
     }
-  }
 
-  return SUCCESS;
+    AttrCatEntry attrCatEntry;
+    int ret = AttrCacheTable::getAttrCatEntry(srcRelId, attr, &attrCatEntry);
+    if (ret != SUCCESS)
+    {
+        return E_ATTRNOTEXIST;
+    }
+
+
+    int type = attrCatEntry.attrType;
+    Attribute attrVal;
+    if (type == NUMBER)
+    {
+        if (isNumber(strVal))
+        { 
+            attrVal.nVal = atof(strVal);
+        }
+        else
+        {
+            return E_ATTRTYPEMISMATCH;
+        }
+    }
+    else if (type == STRING)
+    {
+        strcpy(attrVal.sVal, strVal);
+    }
+
+     RelCatEntry srcRelCatEntry;
+    RelCacheTable::getRelCatEntry(srcRelId, &srcRelCatEntry);
+    int src_nAttrs = srcRelCatEntry.numAttrs;
+
+    char attr_names[src_nAttrs][ATTR_SIZE];
+
+    int attr_types[src_nAttrs];
+
+    for (int i = 0; i < src_nAttrs; i++)
+    {
+        AttrCatEntry srcAttrCatEntry;
+        AttrCacheTable::getAttrCatEntry(srcRelId, i, &srcAttrCatEntry);
+        strcpy(attr_names[i], srcAttrCatEntry.attrName);
+        attr_types[i] = srcAttrCatEntry.attrType;
+    }
+
+    ret = Schema::createRel(targetRel, src_nAttrs, attr_names, attr_types);
+    if (ret != SUCCESS)
+        return ret;
+
+    int tarRelId = OpenRelTable::openRel(targetRel);
+
+
+    if (tarRelId < 0)
+        return tarRelId;
+
+
+    Attribute record[src_nAttrs];
+
+    RelCacheTable::resetSearchIndex(srcRelId);
+
+    while (BlockAccess::search(srcRelId, record, attr, attrVal, op) == SUCCESS)
+    {
+
+        int ret = BlockAccess::insert(tarRelId, record);
+        if (ret != SUCCESS)
+        {
+            Schema::closeRel(targetRel);
+            Schema::deleteRel(targetRel);
+            printf("Failed to insert\n");
+            return ret;
+        }
+    }
+
+    Schema::closeRel(targetRel);
+    return SUCCESS;
 }
+
+
+int Algebra::project(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE])
+{
+
+    int ret;
+
+    int srcRelId = OpenRelTable::getRelId(srcRel);
+    if (srcRelId == E_RELNOTOPEN)
+        return E_RELNOTOPEN;
+
+    RelCatEntry srcRelCatEntry;
+    RelCacheTable::getRelCatEntry(srcRelId, &srcRelCatEntry);
+
+    int numAttrs = srcRelCatEntry.numAttrs;
+
+
+    char attrNames[numAttrs][ATTR_SIZE];
+    int attrTypes[numAttrs];
+
+    for (int i = 0; i < numAttrs; i++)
+    {
+        AttrCatEntry srcAttrCatEntry;
+        AttrCacheTable::getAttrCatEntry(srcRelId, i, &srcAttrCatEntry);
+        strcpy(attrNames[i], srcAttrCatEntry.attrName);
+        attrTypes[i] = srcAttrCatEntry.attrType;
+    }
+
+
+
+    ret = Schema::createRel(targetRel, numAttrs, attrNames, attrTypes);
+    if (ret != SUCCESS)
+        return ret;
+
+    int tarRelId = OpenRelTable::openRel(targetRel);
+
+    if (tarRelId < 0)
+    {
+        Schema::deleteRel(targetRel);
+        return tarRelId;
+    }
+
+
+    RelCacheTable::resetSearchIndex(srcRelId);
+    Attribute record[numAttrs];
+
+    while (BlockAccess::project(srcRelId, record) == SUCCESS)
+    {
+        ret = BlockAccess::insert(tarRelId, record);
+
+        if (ret != SUCCESS)
+        {
+            Schema::closeRel(targetRel);
+            Schema::deleteRel(targetRel);
+            return ret;
+        }
+    }
+    Schema::closeRel(targetRel);
+    return SUCCESS;
+}
+
 
 int Algebra::insert(char relName[ATTR_SIZE], int nAttrs, char record[][ATTR_SIZE]){
     if(strcmp(relName, "RELATIONCAT") == 0 || strcmp(relName, "ATTRIBUTECAT") == 0) {
@@ -150,4 +294,69 @@ bool isNumber(char *str) {
   */
   int ret = sscanf(str, "%f %n", &ignore, &len);
   return ret == 1 && len == strlen(str);
+}
+
+int Algebra::project(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], int tar_nAttrs, char tar_Attrs[][ATTR_SIZE])
+{
+
+    int ret;
+
+    int srcRelId = OpenRelTable::getRelId(srcRel);
+    if (srcRelId == E_RELNOTOPEN)
+        return E_RELNOTOPEN;
+
+    RelCatEntry srcRelCatEntry;
+    RelCacheTable::getRelCatEntry(srcRelId, &srcRelCatEntry);
+
+    int src_nAttrs = srcRelCatEntry.numAttrs;
+
+    int attr_offset[tar_nAttrs];
+    int attr_types[tar_nAttrs];
+
+    for (int i = 0; i < tar_nAttrs; i++)
+    {
+        AttrCatEntry tarAttrCatEntry;
+        ret = AttrCacheTable::getAttrCatEntry(srcRelId, tar_Attrs[i], &tarAttrCatEntry);
+        if (ret != SUCCESS)
+            return E_ATTRNOTEXIST;
+        attr_offset[i] = tarAttrCatEntry.offset;
+        attr_types[i] = tarAttrCatEntry.attrType;
+    }
+
+    ret = Schema::createRel(targetRel, tar_nAttrs, tar_Attrs, attr_types);
+    if (ret != SUCCESS)
+        return ret;
+
+    int tarRelId = OpenRelTable::openRel(targetRel);
+
+    if (tarRelId < 0)
+    {
+        Schema::deleteRel(targetRel);
+        return tarRelId;
+    }
+
+    RelCacheTable::resetSearchIndex(srcRelId);
+    Attribute record[src_nAttrs];
+
+    while (BlockAccess::project(srcRelId, record) == SUCCESS)
+    {
+        Attribute proj_record[tar_nAttrs];
+
+        for (int i = 0; i < tar_nAttrs; i++)
+        {
+            proj_record[i] = record[attr_offset[i]];
+            ;
+        }
+
+        ret = BlockAccess::insert(tarRelId, proj_record);
+
+        if (ret != SUCCESS)
+        {
+            Schema::closeRel(targetRel);
+            Schema::deleteRel(targetRel);
+            return ret;
+        }
+    }
+    Schema::closeRel(targetRel);
+    return SUCCESS;
 }

@@ -403,6 +403,56 @@ int BlockAccess::deleteRelation(char relName[ATTR_SIZE]) {
     return SUCCESS;
 }
 
+int BlockAccess::project(int relId, Attribute *record){
+    RecId prevSearchIndex;
+    RelCacheTable::getSearchIndex(relId, &prevSearchIndex);
+
+    int block,slot;
+    if(prevSearchIndex.block == -1 && prevSearchIndex.slot == -1) {
+        RelCatEntry relCatEntry;
+        RelCacheTable::getRelCatEntry(relId, &relCatEntry);
+        block = relCatEntry.firstBlk;
+        slot = 0;
+    }
+    else{
+        block = prevSearchIndex.block;
+        slot = prevSearchIndex.slot + 1;
+    }
+
+    while(block != -1) {
+        RecBuffer recBuffer(block);
+        HeadInfo recHeader;
+        int ret = recBuffer.getHeader(&recHeader);
+        if(ret != SUCCESS) {
+            return ret;
+        }
+
+        unsigned char* slotMap = (unsigned char*)malloc(sizeof(unsigned char) * recHeader.numSlots);
+        if(slotMap == nullptr) {
+            return FAILURE;
+        }
+        recBuffer.getSlotMap(slotMap);
+
+        while(slot < recHeader.numSlots && slotMap[slot] == SLOT_UNOCCUPIED) {
+            slot++;
+        }
+
+        if(slot < recHeader.numSlots) {
+            RecId nextSearchIndex{block, slot};
+            RelCacheTable::setSearchIndex(relId, &nextSearchIndex);
+            ret = recBuffer.getRecord(record, slot);
+            free(slotMap);
+            return ret;
+        }
+
+        block = recHeader.rblock;
+        slot = 0;
+        free(slotMap);
+    }
+
+    return E_NOTFOUND;
+}
+
 // to copy the result of the search to record argument
 int BlockAccess::search(int relId,Attribute *record, char *attrName, Attribute attrVal, int op){
     RecId recId={-1,-1};
