@@ -3,6 +3,7 @@
 #include <cstring>
 #include <iostream>
 #include <cstdlib>
+using namespace std;
 
 bool isNumber(char *str);
 
@@ -161,6 +162,8 @@ int Algebra::select(char srcRel[ATTR_SIZE],char targetRel[ATTR_SIZE],char attr[A
     Attribute record[src_nAttrs];
 
     RelCacheTable::resetSearchIndex(srcRelId);
+    AttrCacheTable::resetSearchIndex(srcRelId,attr);
+    BlockAccess::resetComparisonCount();
 
     while (BlockAccess::search(srcRelId, record, attr, attrVal, op) == SUCCESS)
     {
@@ -174,7 +177,7 @@ int Algebra::select(char srcRel[ATTR_SIZE],char targetRel[ATTR_SIZE],char attr[A
             return ret;
         }
     }
-
+    cout << "Number of comparisons: " << BlockAccess::getComparisonCount() << endl;
     Schema::closeRel(targetRel);
     return SUCCESS;
 }

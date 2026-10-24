@@ -2,6 +2,22 @@
 #include <cstring>
 #include <iostream>
 
+using namespace std;
+
+int BlockAccess::comparisonCount = 0;
+
+void BlockAccess::resetComparisonCount() {
+    comparisonCount = 0;
+}
+
+void BlockAccess::incrementComparisonCount() {
+    comparisonCount++;
+}
+
+int BlockAccess::getComparisonCount() {
+    return comparisonCount;
+}
+
 RecId BlockAccess::linearSearch(int relId, char attrName[ATTR_SIZE], union Attribute attrVal, int op) {
 
     //previous record id to keep track of the last record found
@@ -168,16 +184,26 @@ int BlockAccess::insert(int relId, union Attribute *record){
     int blockNum = relCatEntry.firstBlk;
 
     RecId rec_id = {-1,-1};
-    int numOfSlots = relCatEntry.numSlotsPerBlk;
-    int numOfAttributes = relCatEntry.numAttrs;
-    int prevBlockNum = -1;
+    int prevBlockNum = relCatEntry.lastBlk;
 
     while(blockNum != -1) {
         RecBuffer recBuffer(blockNum);
         HeadInfo header;
-        recBuffer.getHeader(&header);
+        int ret = recBuffer.getHeader(&header);
+        if(ret != SUCCESS) {
+            return ret;
+        }
+
         unsigned char* slotMap = (unsigned char*)malloc(sizeof(unsigned char) * header.numSlots);
-        recBuffer.getSlotMap(slotMap);
+        if(slotMap == nullptr) {
+            return FAILURE;
+        }
+
+        ret = recBuffer.getSlotMap(slotMap);
+        if(ret != SUCCESS) {
+            free(slotMap);
+            return ret;
+        }
 
         for(int i = 0; i < header.numSlots; i++) {
             if(slotMap[i] == SLOT_UNOCCUPIED) {
@@ -186,11 +212,9 @@ int BlockAccess::insert(int relId, union Attribute *record){
                 break;
             }
         }
-        if(rec_id.slot != -1 && rec_id.block != -1) {
-            break;
-        }
-        prevBlockNum = blockNum;
-        blockNum = header.rblock;
+
+        free(slotMap);
+        break;
     }
 
     // if no more free slot is found in existing record blocks
@@ -218,19 +242,29 @@ int BlockAccess::insert(int relId, union Attribute *record){
         HeadInfo blockHeader;
         blockHeader.pblock = blockHeader.rblock = -1;
         blockHeader.blockType = REC;
-        if(relCatEntry.numRecs == 0) {
+        if(prevBlockNum == -1) {
             blockHeader.lblock = -1;
-        } else blockHeader.lblock = prevBlockNum;
+        } else {
+            blockHeader.lblock = prevBlockNum;
+        }
         blockHeader.numAttrs = relCatEntry.numAttrs;
         blockHeader.numEntries = 0;
         blockHeader.numSlots = relCatEntry.numSlotsPerBlk;
         blockBuffer.setHeader(&blockHeader);
 
         unsigned char* slotMap = (unsigned char*)malloc(sizeof(unsigned char) * relCatEntry.numSlotsPerBlk);
+        if(slotMap == nullptr) {
+            return FAILURE;
+        }
+
         for(int i = 0; i < relCatEntry.numSlotsPerBlk; i++) {
             slotMap[i] = SLOT_UNOCCUPIED;
         }
-        blockBuffer.setSlotMap(slotMap);
+        int ret = blockBuffer.setSlotMap(slotMap);
+        free(slotMap);
+        if(ret != SUCCESS) {
+            return ret;
+        }
 
         if(prevBlockNum != -1) {
 
@@ -259,10 +293,23 @@ int BlockAccess::insert(int relId, union Attribute *record){
     }
 
     unsigned char* slotMap = (unsigned char*)malloc(sizeof(unsigned char) * relCatEntry.numSlotsPerBlk);
-    buffer.getSlotMap(slotMap);
+    if(slotMap == nullptr) {
+        return FAILURE;
+    }
+
+    ret = buffer.getSlotMap(slotMap);
+    if(ret != SUCCESS) {
+        free(slotMap);
+        return ret;
+    }
+
     slotMap[rec_id.slot] = SLOT_OCCUPIED;
 
-    buffer.setSlotMap(slotMap);
+    ret = buffer.setSlotMap(slotMap);
+    free(slotMap);
+    if(ret != SUCCESS) {
+        return ret;
+    }
 
 
     // increment the numEntries field in the header of the block
@@ -454,19 +501,29 @@ int BlockAccess::project(int relId, Attribute *record){
 }
 
 // to copy the result of the search to record argument
-int BlockAccess::search(int relId,Attribute *record, char *attrName, Attribute attrVal, int op){
-    RecId recId={-1,-1};
+int BlockAccess::search(int relId,Attribute *record,char attrName[ATTR_SIZE],Attribute attrVal,int op)
+{
 
-    recId=linearSearch(relId, attrName, attrVal, op);
-    if(recId.block==-1 && recId.slot==-1){
-        return E_NOTFOUND;
-    }
-
-    RecBuffer recBuffer(recId.block);
-    int ret=recBuffer.getRecord(record, recId.slot);
-    if(ret!=SUCCESS){
+    RecId recId;
+    AttrCatEntry attrCatEntry;
+    int ret = AttrCacheTable::getAttrCatEntry(relId, attrName, &attrCatEntry);
+    if(ret != SUCCESS) {
+        printf("Failed to fetch Attribute Cache Entry\n");
         return ret;
     }
+    
+    int rootBlock = attrCatEntry.rootBlock;
+    if(rootBlock==-1) {
+        recId = linearSearch(relId, attrName, attrVal, op);
+    } else {
+        recId = BPlusTree::bPlusSearch(relId, attrName, attrVal, op);
+    }
+
+    if (recId.slot == -1 && recId.block == -1)
+        return E_NOTFOUND;
+
+    RecBuffer block(recId.block);
+    block.getRecord(record, recId.slot);
 
     return SUCCESS;
 }
