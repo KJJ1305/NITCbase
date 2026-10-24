@@ -73,6 +73,7 @@ RecId BlockAccess::linearSearch(int relId, char attrName[ATTR_SIZE], union Attri
         AttrCatEntry attrCatEntry;
         AttrCacheTable::getAttrCatEntry(relId, attrName, &attrCatEntry);
         int attrOffset = attrCatEntry.offset;
+        incrementComparisonCount();
         int cmpVal = compareAttrs(record[attrOffset], attrVal, attrCatEntry.attrType);
 
          if((op == NE && cmpVal != 0 ) ||(op == LT && cmpVal < 0) ||(op == LE && cmpVal <= 0) ||(op == EQ && cmpVal == 0) ||(op == GT && cmpVal > 0) ||(op == GE && cmpVal > 0)) {
