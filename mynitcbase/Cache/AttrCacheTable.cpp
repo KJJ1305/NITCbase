@@ -3,18 +3,23 @@
 #include <cstring>
 #include <iostream>
 
-AttrCacheEntry* AttrCacheTable::attrCache[MAX_OPEN];
+AttrCacheEntry *AttrCacheTable::attrCache[MAX_OPEN];
 
-int AttrCacheTable::getAttrCatEntry(int relId, int attrOffset, AttrCatEntry* attrCatBuf) {
-    if(relId < 0 || relId > MAX_OPEN) {
+int AttrCacheTable::getAttrCatEntry(int relId, int attrOffset, AttrCatEntry *attrCatBuf)
+{
+    if (relId < 0 || relId > MAX_OPEN)
+    {
         return E_OUTOFBOUND;
     }
 
-    if(attrCache[relId] == nullptr) {
+    if (attrCache[relId] == nullptr)
+    {
         return E_RELNOTOPEN;
     }
-    for(AttrCacheEntry* entry = attrCache[relId]; entry != nullptr; entry = entry->next) {
-        if(entry->attrCatEntry.offset == attrOffset) {
+    for (AttrCacheEntry *entry = attrCache[relId]; entry != nullptr; entry = entry->next)
+    {
+        if (entry->attrCatEntry.offset == attrOffset)
+        {
             *attrCatBuf = entry->attrCatEntry;
             return SUCCESS;
         }
@@ -22,43 +27,87 @@ int AttrCacheTable::getAttrCatEntry(int relId, int attrOffset, AttrCatEntry* att
     return E_ATTRNOTEXIST;
 }
 
-/* returns the attribute with name `attrName` for the relation corresponding to relId
-NOTE: this function expects the caller to allocate memory for `*attrCatBuf`
-*/
-int AttrCacheTable::getAttrCatEntry(int relId, char attrName[ATTR_SIZE], AttrCatEntry* attrCatBuf) {
+int AttrCacheTable::getAttrCatEntry(int relId, char attrName[ATTR_SIZE], AttrCatEntry *attrCatEntry)
+{
+    if (relId < 0 || relId > MAX_OPEN)
+    {
+        return E_OUTOFBOUND;
+    }
 
-  // check that relId is valid and corresponds to an open relation
-  if(relId < 0 || relId >= MAX_OPEN) {
-    return E_OUTOFBOUND;
-  }
-
-  if(attrCache[relId] == nullptr) {
-    return E_RELNOTOPEN;
-  }
-
-  // iterate over the entries in the attribute cache and set attrCatBuf to the entry that
-  //    matches attrName
-  for(AttrCacheEntry* entry = attrCache[relId]; entry != nullptr; entry = entry->next){
-    if(strcmp(entry->attrCatEntry.attrName, attrName) == 0) {
-        *attrCatBuf = entry->attrCatEntry;
-        return SUCCESS;
-      }
-
-  }
-  // no attribute with name attrName for the relation
-  return E_ATTRNOTEXIST;
+    if (attrCache[relId] == nullptr)
+    {
+        return E_RELNOTOPEN;
+    }
+    AttrCacheEntry *ptr = attrCache[relId];
+    while (ptr)
+    {
+        if (strcmp(ptr->attrCatEntry.attrName, attrName) == 0)
+        {
+            *(attrCatEntry) = ptr->attrCatEntry;
+            return SUCCESS;
+        }
+        ptr = ptr->next;
+    }
+    return E_ATTRNOTEXIST;
 }
 
 void AttrCacheTable::recordToAttrCatEntry(union Attribute record[ATTRCAT_NO_ATTRS],
-    AttrCatEntry* AttrCatEntry) {
-        strcpy(AttrCatEntry->relName, record[ATTRCAT_REL_NAME_INDEX].sVal);
-        strcpy(AttrCatEntry->attrName, record[ATTRCAT_ATTR_NAME_INDEX].sVal);
-        AttrCatEntry->offset = (int)record[ATTRCAT_OFFSET_INDEX].nVal;
-        AttrCatEntry->attrType = (int)record[ATTRCAT_ATTR_TYPE_INDEX].nVal;
-        AttrCatEntry->rootBlock= (int)record[ATTRCAT_ROOT_BLOCK_INDEX].nVal;
-        AttrCatEntry->primaryFlag=(bool)record[ATTRCAT_PRIMARY_FLAG_INDEX].nVal;
-    }
+                                          AttrCatEntry *AttrCatEntry)
+{
+    strcpy(AttrCatEntry->relName, record[ATTRCAT_REL_NAME_INDEX].sVal);
+    strcpy(AttrCatEntry->attrName, record[ATTRCAT_ATTR_NAME_INDEX].sVal);
+    AttrCatEntry->offset = (int)record[ATTRCAT_OFFSET_INDEX].nVal;
+    AttrCatEntry->attrType = (int)record[ATTRCAT_ATTR_TYPE_INDEX].nVal;
+    AttrCatEntry->rootBlock = (int)record[ATTRCAT_ROOT_BLOCK_INDEX].nVal;
+    AttrCatEntry->primaryFlag = (bool)record[ATTRCAT_PRIMARY_FLAG_INDEX].nVal;
+}
 
+int AttrCacheTable::setAttrCatEntry(int relId, char attrName[ATTR_SIZE], AttrCatEntry* attrCatBuf) {
+    if(relId < 0 || relId >= MAX_OPEN) {
+        return E_OUTOFBOUND;
+    }
+    if(attrCache[relId] == nullptr) {
+        return E_RELNOTOPEN;
+    }
+    AttrCacheEntry* attrCacheHead = attrCache[relId];
+    while(attrCacheHead) {
+        if(strcmp(attrCacheHead->attrCatEntry.attrName, attrName) == 0) {
+            attrCacheHead->attrCatEntry = *attrCatBuf;
+            attrCacheHead->dirty = true;
+            return SUCCESS;
+        }
+        attrCacheHead = attrCacheHead->next;
+    }
+    return E_ATTRNOTEXIST;
+}
+int AttrCacheTable::setAttrCatEntry(int relId, int attrOffset, AttrCatEntry* attrCatBuf) {
+    if(relId < 0 || relId >= MAX_OPEN) {
+        return E_OUTOFBOUND;
+    }
+    if(attrCache[relId] == nullptr) {
+        return E_RELNOTOPEN;
+    }
+    AttrCacheEntry* attrCacheHead = attrCache[relId];
+    while(attrCacheHead) {
+        if(attrCacheHead->attrCatEntry.offset == attrOffset) {
+            attrCacheHead->attrCatEntry = *attrCatBuf;
+            attrCacheHead->dirty = true;
+            return SUCCESS;
+        }
+        attrCacheHead = attrCacheHead->next;
+        
+    }
+    return E_ATTRNOTEXIST;
+}
+
+void AttrCacheTable::attrCatEntryToRecord(AttrCatEntry *attrCatEntry, union Attribute record[ATTRCAT_NO_ATTRS]){
+    strcpy(record[ATTRCAT_REL_NAME_INDEX].sVal, attrCatEntry->relName);
+    strcpy(record[ATTRCAT_ATTR_NAME_INDEX].sVal, attrCatEntry->attrName);
+    record[ATTRCAT_ATTR_TYPE_INDEX].nVal = attrCatEntry->attrType;
+    record[ATTRCAT_PRIMARY_FLAG_INDEX].nVal = attrCatEntry->primaryFlag;
+    record[ATTRCAT_ROOT_BLOCK_INDEX].nVal = attrCatEntry->rootBlock;
+    record[ATTRCAT_OFFSET_INDEX].nVal = attrCatEntry->offset;
+  }
 int AttrCacheTable::getSearchIndex(int relId, char attrName[ATTR_SIZE], IndexId *searchIndex)
 {
     if (relId < 0 || relId >= MAX_OPEN)
