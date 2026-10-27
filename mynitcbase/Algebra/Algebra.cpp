@@ -363,3 +363,155 @@ int Algebra::project(char srcRel[ATTR_SIZE], char targetRel[ATTR_SIZE], int tar_
     Schema::closeRel(targetRel);
     return SUCCESS;
 }
+
+int Algebra::join(char srcRelation1[ATTR_SIZE], char srcRelation2[ATTR_SIZE], char targetRelation[ATTR_SIZE], char attribute1[ATTR_SIZE], char attribute2[ATTR_SIZE])
+{
+    int ret;
+    int srcRelId_1 = OpenRelTable::getRelId(srcRelation1);
+    int srcRelId_2 = OpenRelTable::getRelId(srcRelation2);
+
+    if (srcRelId_1 == E_RELNOTOPEN || srcRelId_2 == E_RELNOTOPEN)
+    {
+        return E_RELNOTOPEN;
+    }
+
+    AttrCatEntry attrCatEntry1, attrCatEntry2;
+    ret = AttrCacheTable::getAttrCatEntry(srcRelId_1, attribute1, &attrCatEntry1);
+    if (ret != SUCCESS)
+    {
+        return E_ATTRNOTEXIST;
+    }
+    ret = AttrCacheTable::getAttrCatEntry(srcRelId_2, attribute2, &attrCatEntry2);
+    if (ret != SUCCESS)
+    {
+        return E_ATTRNOTEXIST;
+    }
+
+    if(attrCatEntry1.attrType != attrCatEntry2.attrType) {
+        return E_ATTRTYPEMISMATCH;
+    }
+
+    RelCatEntry relCatEntryBuf1, relCatEntryBuf2;
+
+    RelCacheTable::getRelCatEntry(srcRelId_1, &relCatEntryBuf1);
+    RelCacheTable::getRelCatEntry(srcRelId_2, &relCatEntryBuf2);
+
+    int numOfAttributes_1 = relCatEntryBuf1.numAttrs;
+    int numOfAttributes_2 = relCatEntryBuf2.numAttrs;
+
+    for(int i = 0; i < numOfAttributes_1; i++) {
+        AttrCatEntry attrCatEntry_1;
+        AttrCacheTable::getAttrCatEntry(srcRelId_1, i, &attrCatEntry_1);
+        
+        if(strcmp(attrCatEntry_1.attrName, attribute1) == 0) continue;
+
+        for(int j = 0; j < numOfAttributes_2; j++) {
+            AttrCatEntry attrCatEntry_2;
+            AttrCacheTable::getAttrCatEntry(srcRelId_2, j, &attrCatEntry_2);
+
+            if(strcmp(attrCatEntry_2.attrName, attribute2) == 0) continue;
+
+            if(strcmp(attrCatEntry_1.attrName, attrCatEntry_2.attrName) == 0) {
+                return E_DUPLICATEATTR;
+            }
+        }
+    }
+
+    int rootBlock = attrCatEntry2.rootBlock;
+    
+    // creating B+ Tree for the 2nd relation
+    if(rootBlock == -1) {
+        int ret = BPlusTree::bPlusCreate(srcRelId_2, attribute2);
+        if(ret == E_DISKFULL) return E_DISKFULL;
+        
+        rootBlock =attrCatEntry2.rootBlock;
+    }
+
+    int numOfAttributesInTarget = numOfAttributes_1 + numOfAttributes_2 - 1;
+    char targetRelAttrNames[numOfAttributesInTarget][ATTR_SIZE];
+    int targetRelAttrTypes[numOfAttributesInTarget];
+
+    for(int i = 0; i < numOfAttributes_1; i++) {
+        AttrCatEntry attrCatEntry;
+
+        AttrCacheTable::getAttrCatEntry(srcRelId_1, i, &attrCatEntry);
+        strcpy(targetRelAttrNames[i], attrCatEntry.attrName);
+        targetRelAttrTypes[i] = attrCatEntry.attrType;
+    }
+
+    bool inserted = false;
+
+    for(int i = 0; i < numOfAttributes_2; i++) {
+        AttrCatEntry attrCatEntry;
+        AttrCacheTable::getAttrCatEntry(srcRelId_2, i, &attrCatEntry);
+
+        if(strcmp(attrCatEntry.attrName, attribute2) == 0) {
+            inserted = true;
+            continue;
+        }
+
+        if(!inserted) {
+            strcpy(targetRelAttrNames[numOfAttributes_1 + i], attrCatEntry.attrName);
+            targetRelAttrTypes[numOfAttributes_1 + i] = attrCatEntry.attrType;
+        } else {
+            strcpy(targetRelAttrNames[numOfAttributes_1 + i - 1], attrCatEntry.attrName);
+            targetRelAttrTypes[numOfAttributes_1 + i - 1] = attrCatEntry.attrType;
+        }
+    }
+
+    ret = Schema::createRel(targetRelation, numOfAttributesInTarget, targetRelAttrNames, targetRelAttrTypes);
+
+    if(ret != SUCCESS) return ret;
+
+    int targetRelId = OpenRelTable::openRel(targetRelation);
+
+    if(targetRelId < 0) {
+        Schema::deleteRel(targetRelation);
+        return targetRelId;
+    }
+
+    Attribute record1[numOfAttributes_1];
+    Attribute record2[numOfAttributes_2];
+    Attribute targetRecord[numOfAttributesInTarget];
+
+    RelCacheTable::resetSearchIndex(srcRelId_1);
+
+    while(BlockAccess::project(srcRelId_1, record1) == SUCCESS) {
+        RelCacheTable::resetSearchIndex(srcRelId_2);
+        AttrCacheTable::resetSearchIndex(srcRelId_2, attribute2);
+
+
+        while(BlockAccess::search(srcRelId_2, record2, attribute2, record1[attrCatEntry1.offset], EQ) == SUCCESS) {
+            
+            for(int i = 0; i < numOfAttributes_1; i++) {
+                targetRecord[i] = record1[i];
+            }
+
+            bool inserted = false;
+            for(int i = 0; i < numOfAttributes_2; i++) {
+                if(i == attrCatEntry2.offset) {
+                    inserted = true;
+                    continue;
+                }
+
+                if(!inserted) {
+                    targetRecord[numOfAttributes_1 + i] = record2[i];
+                } else {
+                    targetRecord[numOfAttributes_1 + i - 1] = record2[i];
+                }
+            }
+
+            ret = BlockAccess::insert(targetRelId, targetRecord);
+
+            if(ret == E_DISKFULL) {
+                ret = OpenRelTable::closeRel(targetRelId);
+                
+                ret = Schema::deleteRel(targetRelation);
+
+                return E_DISKFULL;
+            }
+        }
+    }
+
+    return SUCCESS;
+}
